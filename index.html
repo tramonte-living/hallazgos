@@ -53,6 +53,9 @@
     .btn.grande { padding: 14px; font-size: 1.1rem; margin-top: 4px; }
     .btn-sec { background: #fff; color: var(--azul); border: 2px dashed var(--azul2); }
     .btn.mini { width: auto; padding: 6px 10px; font-size: .85rem; }
+  .btn-peligro { background: var(--error); }
+  .tarjeta.peligro { border-color: var(--error); }
+  .tarjeta.peligro h2 { color: var(--error); }
   
     .archivos { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
     .archivo { display: flex; align-items: center; gap: 10px; border: 1px solid var(--borde); border-radius: 8px; padding: 6px; }
@@ -244,6 +247,13 @@
             Los cambios se aplican solos; si no, use el botón.</p>
           <button id="a-recargar" class="btn btn-sec" type="button">Recargar configuración y resúmenes</button>
         </div>
+        <div class="tarjeta peligro" id="a-reset-tarjeta" hidden>
+          <h2>Reset (solo pruebas)</h2>
+          <p class="ayuda">Borra todos los hallazgos de los 6 libros y envía las fotos y videos a la papelera de Drive
+            (se pueden recuperar durante 30 días). Los consecutivos vuelven a empezar en 001.
+            Los códigos, categorías y ajustes no se tocan.</p>
+          <button id="a-reset" class="btn btn-peligro" type="button">🗑 Borrar todo y empezar de nuevo</button>
+        </div>
       </div>
     </section>
   </main>
@@ -372,6 +382,7 @@
       link('📁 Carpeta de datos (auditoría)', d.enlaces.datos);
       link('🔐 Configuración (códigos, categorías, zonas)', d.enlaces.config);
       d.enlaces.libros.forEach(l => link('📊 ' + l.nombre, l.url));
+      $('a-reset-tarjeta').hidden = !d.prueba;
     }
   }
 
@@ -568,6 +579,18 @@
       st.datos.ajustes = aj; st.datos.limiteMB = aj.limiteMB; $('limite-mb').textContent = aj.limiteMB;
       toast('Ajustes guardados');
     } catch (e) { toast(msgError(e), true); }
+  });
+  $('a-reset').addEventListener('click', async ev => {
+    const c = prompt('Esto borra TODOS los hallazgos y evidencias de prueba. Escriba BORRAR para confirmar:');
+    if (c === null) return;
+    if (c.trim().toUpperCase() !== 'BORRAR') return toast('No se borró nada (confirmación incorrecta).', true);
+    ev.target.disabled = true; toast('Borrando…');
+    try {
+      const r = await api('api_reset', st.codigo, 'BORRAR');
+      st.lista = [];
+      toast('Listo: ' + r.filas + ' hallazgo(s) y ' + r.archivos + ' archivo(s) eliminados.');
+    } catch (e) { toast(msgError(e), true); }
+    finally { ev.target.disabled = false; }
   });
   $('a-recargar').addEventListener('click', async ev => {
     ev.target.disabled = true;
