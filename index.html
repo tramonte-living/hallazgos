@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Hallazgos Interventoría · Tramonte</title>
+  <title>Hallazgos Tramonte</title>
   <style>
     :root {
       --azul: #1F4E78; --azul2: #2E75B6; --fondo: #F3F6F9; --borde: #D6DEE6; --texto: #1d2733;
@@ -113,10 +113,12 @@
     .spinner { width: 34px; height: 34px; border: 4px solid #d5dee8; border-top-color: var(--azul); border-radius: 50%;
                margin: 10px auto; animation: giro 1s linear infinite; }
     @keyframes giro { to { transform: rotate(360deg); } }
-    [hidden] { display: none !important; }
+    .banner-prueba { background: #b54708; color: #fff; text-align: center; font-size: .8rem; font-weight: 600; padding: 4px; }
+  [hidden] { display: none !important; }
   </style>
 </head>
 <body>
+  <div id="banner-prueba" class="banner-prueba" hidden>🧪 AMBIENTE DE PRUEBA · los datos de aquí no son reales</div>
   <header class="barra">
     <div class="marca">🏢 <b>Tramonte</b> · Hallazgos</div>
     <div id="usuario" class="usuario" hidden>
@@ -279,12 +281,13 @@
   'use strict';
 
   const $ = id => document.getElementById(id);
-  const LS_CODIGO = 'hz_codigo', LS_NOMBRE = 'hz_nombre';
+  const LS_CODIGO = 'hz_codigo', LS_NOMBRE = 'hz_nombre'; // sesiones separadas por ambiente
   const st = { codigo: '', datos: null, archivos: [], lista: [] };
 
   // ---------- utilidades ----------
   // Motor (Apps Script). text/plain evita la verificación previa CORS; sin cookies, sin cuentas de Google.
-  const API_URL = 'https://script.google.com/macros/s/AKfycbxonnSoJLmaazla-p6yqDdr1AvRuJ9h2gdMniqX9-MesadREJWax7nSOeMt-x4Xx0zz/exec';
+  const API_URL = 'https://script.google.com/macros/s/AKfycbwyt2shaNYngZjdhXxJXtQHWLJYC4SK4njyftSbi4GdeiW6tmCP82K_407X70GGXPiB/exec'; // publicar.py lo reemplaza según el ambiente
+  const ES_PRUEBA = false;
   async function api(fn) {
     const args = Array.prototype.slice.call(arguments, 1);
     let resp;
@@ -669,6 +672,7 @@
     finally { ev.target.disabled = false; }
   });
 
+  $('banner-prueba').hidden = !ES_PRUEBA;
   iniciar(localStorage.getItem(LS_CODIGO) || '');
 })();
 </script>
