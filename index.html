@@ -256,6 +256,7 @@
           <p class="ayuda">Códigos, correos, categorías y zonas se editan en la hoja de Configuración.
             Los cambios se aplican solos; si no, use el botón.</p>
           <button id="a-recargar" class="btn btn-sec" type="button">Recargar configuración y resúmenes</button>
+          <p id="a-fallos" class="ayuda"></p>
         </div>
         <div class="tarjeta peligro" id="a-reset-tarjeta" hidden>
           <h2>Reset (solo pruebas)</h2>
@@ -289,7 +290,10 @@
     } catch (e) { throw new Error('Sin conexión con el servidor. Revise su internet e intente de nuevo.'); }
     let d;
     try { d = await resp.json(); } catch (e) { throw new Error('El servidor no respondió correctamente (' + resp.status + '). Intente de nuevo.'); }
-    if (!d.ok) throw new Error(d.error || 'Error desconocido');
+    if (!d.ok) {
+      if (/^Sesión (vencida|no válida)/.test(d.error || '') && fn !== 'api_inicio') sesionVencida(d.error);
+      throw new Error(d.error || 'Error desconocido');
+    }
     return d.r;
   }
   function el(tag, props, hijos) {
@@ -336,8 +340,8 @@
         if (d.mensaje) mostrarIngresoMsg(d.mensaje);
         return;
       }
-      st.codigo = codigo || '';
-      if (st.codigo) localStorage.setItem(LS_CODIGO, st.codigo);
+      st.codigo = d.sesion.token || '';
+      if (st.codigo) localStorage.setItem(LS_CODIGO, st.codigo); else localStorage.removeItem(LS_CODIGO);
       st.datos = d;
       montarApp();
       vista('v-app');
@@ -347,6 +351,12 @@
       mostrarIngresoMsg(msgError(e));
     }
   }
+  function sesionVencida(msg) {
+    localStorage.removeItem(LS_CODIGO);
+    st.codigo = ''; st.datos = null;
+    $('usuario').hidden = true; $('in-codigo').value = '';
+    vista('v-ingreso'); mostrarIngresoMsg(msg);
+  }
   function mostrarIngresoMsg(m) { const p = $('ingreso-msg'); p.textContent = m; p.hidden = !m; }
 
   $('f-ingreso').addEventListener('submit', ev => {
@@ -355,6 +365,7 @@
     if (c) iniciar(c);
   });
   $('btn-salir').addEventListener('click', () => {
+    if (st.codigo) api('api_salir', st.codigo).catch(() => {});
     localStorage.removeItem(LS_CODIGO);
     st.codigo = ''; st.datos = null;
     $('usuario').hidden = true; $('in-codigo').value = ''; mostrarIngresoMsg('');
@@ -388,6 +399,8 @@
       $('a-publico').checked = !!d.ajustes.accesoPublico;
       $('a-cualquier').checked = !!d.ajustes.cualquierTorre;
       $('a-limite').value = d.ajustes.limiteMB;
+      $('a-fallos').textContent = '🔒 Intentos de código incorrecto en la última hora: ' + (d.ajustes.fallosHora || 0) +
+        (d.ajustes.fallosHora > 20 ? ' ⚠️ Muchos intentos: considere cambiar los códigos.' : '');
       const ul = $('a-enlaces'); ul.innerHTML = '';
       const link = (txt, url) => ul.appendChild(el('li', {}, [el('a', { href: url, target: '_blank', text: txt })]));
       link('📁 Carpeta de datos (auditoría)', d.enlaces.datos);
@@ -466,7 +479,7 @@
     try {
       progreso(3, 'Registrando hallazgo…');
       const r = await api('api_crearHallazgo', st.codigo, datos);
-      id = r.id;
+      id = r.id; const ticket = r.ticket;
       for (let i = 0; i < archivos.length; i++) {
         const a = archivos[i];
         const pendiente = () => pendientes.push({ indice: i + 1, original: a.file.name, mime: a.file.type });
@@ -477,7 +490,7 @@
         for (let intento = 1; intento <= 2 && !ok; intento++) {
           try {
             const b64 = await leerBase64(a.file);
-            const res = await api('api_subirEvidencia', st.codigo, id, i + 1, a.file.name, a.file.type, b64);
+            const res = await api('api_subirEvidencia', st.codigo, id, ticket, i + 1, a.file.name, a.file.type, b64);
             subidos.push(res); ok = true; a.estado = '✓ ' + res.nombre;
           } catch (e) {
             if (intento === 2) { pendiente(); a.fallo = true; a.estado = '✗ No se pudo subir: ' + msgError(e); }
@@ -486,7 +499,7 @@
         pintarArchivos();
       }
       progreso(97, 'Finalizando…');
-      const fin = await api('api_finalizarHallazgo', st.codigo, id, subidos, pendientes);
+      const fin = await api('api_finalizarHallazgo', st.codigo, id, ticket, pendientes);
       progreso(100, 'Listo');
       $('res-id').textContent = id;
       $('res-detalle').textContent = fin.evidencias + ' evidencia(s) guardada(s).';
