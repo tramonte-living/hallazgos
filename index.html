@@ -60,6 +60,14 @@
     .archivos { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
     .archivo { display: flex; align-items: center; gap: 10px; border: 1px solid var(--borde); border-radius: 8px; padding: 6px; }
     .archivo.malo { border-color: var(--error); background: #fff4f2; }
+  .archivo.manual { border-color: var(--aviso); background: #fff8eb; }
+  .aviso-manual { text-align: left; background: #fff8eb; border: 1px solid var(--aviso); border-radius: 10px;
+                  padding: 12px; margin: 12px 0; font-size: .9rem; }
+  .aviso-manual b { color: var(--aviso); }
+  .aviso-manual code { background: #fff; border: 1px solid var(--borde); border-radius: 4px; padding: 1px 5px;
+                       font-size: .9rem; word-break: break-all; }
+  .aviso-manual ul { padding-left: 18px; margin: 6px 0; }
+  .hallazgo .pend { color: var(--aviso); font-size: .85rem; margin-top: 6px; }
     .archivo .mini { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; background: #e9eef3;
                      display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0; }
     .archivo .info { flex: 1; min-width: 0; font-size: .85rem; }
@@ -181,7 +189,8 @@
               ➕ Agregar fotos o videos
               <input id="in-archivos" type="file" accept="image/*,video/*" multiple hidden>
             </label>
-            <p class="ayuda">Máximo <span id="limite-mb">50</span> MB por archivo. Puede agregar varios.</p>
+            <p class="ayuda">Puede agregar varios. Los archivos de más de <span id="limite-mb">50</span> MB no se suben
+              por la página: al enviar se le indicará cómo entregarlos.</p>
             <ul id="lista-archivos" class="archivos"></ul>
           </div>
 
@@ -197,6 +206,7 @@
           <p>Hallazgo registrado</p>
           <p class="id-grande" id="res-id"></p>
           <p id="res-detalle" class="ayuda"></p>
+          <div id="res-manual" class="aviso-manual" hidden></div>
           <button id="btn-otro" class="btn" type="button">Reportar otro</button>
         </div>
       </div>
@@ -356,7 +366,7 @@
   function montarApp() {
     const d = st.datos, s = d.sesion;
     $('usuario').hidden = false;
-    $('usuario-txt').textContent = s.rol === 'ADMIN' ? 'Administrador' : nombreLibro(s.libro) + (s.usuario ? ' · ' + s.usuario : '');
+    $('usuario-txt').textContent = (s.usuario ? s.usuario + ' · ' : '') + (s.rol === 'ADMIN' ? 'Administrador' : nombreLibro(s.libro));
     $('btn-salir').hidden = s.via !== 'código';
     $('tab-admin').hidden = s.rol !== 'ADMIN';
     $('limite-mb').textContent = d.limiteMB;
@@ -368,6 +378,7 @@
     actualizarZonas();
     opciones($('sel-categoria'), d.categorias, 'Seleccione…');
     $('in-reporta').value = localStorage.getItem(LS_NOMBRE) || '';
+    $('in-reporta').closest('.campo').hidden = !!s.usuario;
 
     opciones($('c-libro'), libros);
     if (s.libro) $('c-libro').value = s.libro;
@@ -408,12 +419,13 @@
     const ul = $('lista-archivos'); ul.innerHTML = '';
     const limite = st.datos.limiteMB * 1048576;
     st.archivos.forEach((a, i) => {
-      const grande = a.file.size > limite;
       const tipoOk = /^(image|video)\//.test(a.file.type);
-      a.malo = grande || !tipoOk;
+      a.malo = !tipoOk;
+      a.manual = tipoOk && a.file.size > limite;
       const mini = a.url ? el('img', { class: 'mini', src: a.url, alt: '' }) : el('div', { class: 'mini', text: /^video/.test(a.file.type) ? '🎬' : '📄' });
-      const nota = !tipoOk ? 'Tipo no permitido' : grande ? 'Supera ' + st.datos.limiteMB + ' MB' : (a.estado || mb(a.file.size));
-      ul.appendChild(el('li', { class: 'archivo' + (a.malo ? ' malo' : '') }, [
+      const nota = !tipoOk ? 'Tipo no permitido' : a.estado ||
+        (a.manual ? mb(a.file.size) + ' · supera ' + st.datos.limiteMB + ' MB: se entregará manualmente' : mb(a.file.size));
+      ul.appendChild(el('li', { class: 'archivo' + (a.malo ? ' malo' : a.manual || a.fallo ? ' manual' : '') }, [
         mini,
         el('div', { class: 'info' }, [
           el('div', { class: 'nombre', text: (i + 1) + '. ' + a.file.name }),
@@ -443,20 +455,22 @@
     if (!datos.zona) return toast('Seleccione el piso / zona.', true);
     if (!datos.categoria) return toast('Seleccione la categoría.', true);
     if (!datos.descripcion) return toast('Escriba la descripción.', true);
-    if (st.archivos.some(a => a.malo)) return toast('Quite los archivos marcados en rojo.', true);
+    if (st.archivos.some(a => a.malo)) return toast('Quite los archivos marcados en rojo (solo fotos o videos).', true);
     if (!st.archivos.length && !confirm('¿Enviar el reporte sin fotos ni videos?')) return;
-    localStorage.setItem(LS_NOMBRE, datos.reportadoPor);
+    if (datos.reportadoPor) localStorage.setItem(LS_NOMBRE, datos.reportadoPor);
 
     const btn = $('btn-enviar'); btn.disabled = true;
     const archivos = st.archivos.slice();
     datos.nArchivos = archivos.length;
-    const subidos = []; let fallidos = 0; let id = null;
+    const subidos = [], pendientes = []; let id = null;
     try {
       progreso(3, 'Registrando hallazgo…');
       const r = await api('api_crearHallazgo', st.codigo, datos);
       id = r.id;
       for (let i = 0; i < archivos.length; i++) {
         const a = archivos[i];
+        const pendiente = () => pendientes.push({ indice: i + 1, original: a.file.name, mime: a.file.type });
+        if (a.manual) { pendiente(); a.estado = '⏳ Entrega manual (supera ' + st.datos.limiteMB + ' MB)'; pintarArchivos(); continue; }
         const base = 5 + 90 * i / archivos.length;
         progreso(base, 'Subiendo ' + (i + 1) + ' de ' + archivos.length + ' (' + mb(a.file.size) + ')…');
         let ok = false;
@@ -466,17 +480,17 @@
             const res = await api('api_subirEvidencia', st.codigo, id, i + 1, a.file.name, a.file.type, b64);
             subidos.push(res); ok = true; a.estado = '✓ ' + res.nombre;
           } catch (e) {
-            if (intento === 2) { fallidos++; a.estado = '✗ ' + msgError(e); }
+            if (intento === 2) { pendiente(); a.fallo = true; a.estado = '✗ No se pudo subir: ' + msgError(e); }
           }
         }
         pintarArchivos();
       }
       progreso(97, 'Finalizando…');
-      const fin = await api('api_finalizarHallazgo', st.codigo, id, subidos, fallidos);
+      const fin = await api('api_finalizarHallazgo', st.codigo, id, subidos, pendientes);
       progreso(100, 'Listo');
       $('res-id').textContent = id;
-      $('res-detalle').textContent = fin.evidencias + ' evidencia(s) guardada(s)' +
-        (fallidos ? ' · ⚠️ ' + fallidos + ' no se pudieron subir (quedó como "Incompleto")' : '') + '.';
+      $('res-detalle').textContent = fin.evidencias + ' evidencia(s) guardada(s).';
+      mostrarManual(fin);
       $('f-reporte').hidden = true; $('resultado').hidden = false;
       window.scrollTo(0, 0);
     } catch (e) {
@@ -487,11 +501,29 @@
     }
   });
 
+  function mostrarManual(fin) {
+    const caja = $('res-manual');
+    caja.innerHTML = ''; caja.hidden = !fin.pendientes.length;
+    if (!fin.pendientes.length) return;
+    const texto = 'Hallazgo ' + fin.id + ' – archivos para cargar manualmente\nCarpeta: ' + fin.ruta + '\n' +
+      fin.pendientes.map(p => '• ' + p.original + '  →  guardar como: ' + p.nombre).join('\n');
+    caja.appendChild(el('p', {}, [el('b', { text: '⚠️ ' + fin.pendientes.length + ' archivo(s) no se pudieron subir.' }),
+      ' El hallazgo quedó registrado como "Incompleto". Entregue estos archivos al administrador ' +
+      '(por WhatsApp o correo, con las instrucciones de abajo) o súbalos usted si tiene acceso a la carpeta:']));
+    caja.appendChild(el('p', {}, ['📁 Carpeta: ', el('code', { text: fin.ruta })]));
+    caja.appendChild(el('ul', {}, fin.pendientes.map(p =>
+      el('li', {}, [p.original + ' → guardar como ', el('code', { text: p.nombre })]))));
+    caja.appendChild(el('button', { class: 'btn mini', type: 'button', text: '📋 Copiar instrucciones', onclick: async () => {
+      try { await navigator.clipboard.writeText(texto); toast('Instrucciones copiadas. Péguelas en WhatsApp o correo.'); }
+      catch (e) { prompt('Copie este texto:', texto); }
+    } }));
+  }
+
   $('btn-otro').addEventListener('click', () => {
     st.archivos.forEach(a => a.url && URL.revokeObjectURL(a.url));
     st.archivos = []; pintarArchivos();
     $('in-ubicacion').value = ''; $('in-descripcion').value = ''; $('sel-categoria').value = '';
-    $('resultado').hidden = true; $('f-reporte').hidden = false;
+    $('resultado').hidden = true; $('res-manual').hidden = true; $('f-reporte').hidden = false;
   });
 
   // ---------- consultar ----------
@@ -537,6 +569,7 @@
         h.reportadoPor ? el('div', { class: 'meta', text: 'Reportó: ' + h.reportadoPor }) : null,
         h.obs ? el('div', { class: 'meta', text: '📝 ' + h.obs }) : null,
         galeria,
+        (h.pendientes || []).length ? el('div', { class: 'pend', text: '⏳ Pendiente carga manual: ' + h.pendientes.join(', ') }) : null,
       ]);
       if (admin) tarjeta.appendChild(controlRevision(h));
       cont.appendChild(tarjeta);
@@ -567,7 +600,16 @@
       try { await api('api_cambiarEstado', st.codigo, h.id, sel.value, obs.value); h.estado = sel.value; h.obs = obs.value; toast(h.id + ' actualizado'); pintarLista(); }
       catch (e) { toast(msgError(e), true); btn.disabled = false; }
     } });
-    return el('div', { class: 'revision' }, [sel, btn, obs]);
+    const re = el('button', { class: 'btn btn-sec mini', type: 'button', text: '🔄 Actualizar evidencias',
+      title: 'Vuelve a leer la carpeta (después de una carga manual)', onclick: async () => {
+        re.disabled = true;
+        try {
+          const r = await api('api_reescanearEvidencias', st.codigo, h.id);
+          toast(h.id + ': ' + r.evidencias + ' evidencia(s)' + (r.pendientes.length ? ', faltan ' + r.pendientes.length : ', completo'));
+          cargarLista();
+        } catch (e) { toast(msgError(e), true); re.disabled = false; }
+      } });
+    return el('div', { class: 'revision' }, [sel, btn, obs, re]);
   }
 
   // ---------- admin ----------
