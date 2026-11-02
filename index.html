@@ -39,7 +39,7 @@
     .campo label { display: block; font-weight: 600; font-size: .9rem; margin-bottom: 4px; }
     .fila2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     @media (max-width: 480px) { .fila2 { grid-template-columns: 1fr; } }
-    input[type=text], input[type=search], input[type=number], select, textarea {
+    input[type=text], input[type=search], input[type=number], input[type=date], select, textarea {
       width: 100%; padding: 10px; border: 1px solid var(--borde); border-radius: 8px; font-size: 1rem;
       background: #fff; color: var(--texto); font-family: inherit; }
     textarea { resize: vertical; }
@@ -168,6 +168,10 @@
               <label for="sel-categoria">Categoría</label>
               <select id="sel-categoria" required></select>
             </div>
+          </div>
+          <div class="campo corto">
+            <label for="in-fecha">Fecha del reporte</label>
+            <input id="in-fecha" type="date" required>
           </div>
           <div class="campo">
             <label for="in-ubicacion">Ubicación exacta / referencia</label>
@@ -320,6 +324,11 @@
     if (conTodos) sel.appendChild(el('option', { value: '', text: conTodos }));
     items.forEach(it => sel.appendChild(el('option', { value: it.value != null ? it.value : it, text: it.text || it })));
   }
+  function hoyISO() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function fechaHoy() { const f = $('in-fecha'); f.max = hoyISO(); f.value = hoyISO(); }
   function leerBase64(file) {
     return new Promise((ok, mal) => {
       const r = new FileReader();
@@ -388,6 +397,7 @@
     $('campo-libro').hidden = libros.length < 2;
     actualizarZonas();
     opciones($('sel-categoria'), d.categorias, 'Seleccione…');
+    fechaHoy();
     $('in-reporta').value = localStorage.getItem(LS_NOMBRE) || '';
     $('in-reporta').closest('.campo').hidden = !!s.usuario;
 
@@ -462,10 +472,13 @@
     ev.preventDefault();
     const datos = {
       libro: $('sel-libro').value, zona: $('sel-zona').value, categoria: $('sel-categoria').value,
+      fechaReporte: $('in-fecha').value,
       ubicacion: $('in-ubicacion').value.trim(), descripcion: $('in-descripcion').value.trim(),
       reportadoPor: $('in-reporta').value.trim(),
     };
     if (!datos.zona) return toast('Seleccione el piso / zona.', true);
+    if (!datos.fechaReporte) return toast('Indique la fecha del reporte.', true);
+    if (datos.fechaReporte > hoyISO()) return toast('La fecha del reporte no puede ser futura.', true);
     if (!datos.categoria) return toast('Seleccione la categoría.', true);
     if (!datos.descripcion) return toast('Escriba la descripción.', true);
     if (st.archivos.some(a => a.malo)) return toast('Quite los archivos marcados en rojo (solo fotos o videos).', true);
@@ -536,6 +549,7 @@
     st.archivos.forEach(a => a.url && URL.revokeObjectURL(a.url));
     st.archivos = []; pintarArchivos();
     $('in-ubicacion').value = ''; $('in-descripcion').value = ''; $('sel-categoria').value = '';
+    fechaHoy();
     $('resultado').hidden = true; $('res-manual').hidden = true; $('f-reporte').hidden = false;
   });
 
@@ -576,7 +590,8 @@
       }
       const tarjeta = el('div', { class: 'hallazgo' }, [
         el('div', { class: 'cab' }, [el('span', { class: 'hid', text: h.id }), el('span', { class: claseEstado(h.estado), text: h.estado })]),
-        el('div', { class: 'meta', text: h.zona + ' · ' + h.categoria + ' · ' + h.fecha }),
+        el('div', { class: 'meta', text: h.zona + ' · ' + h.categoria + ' · 📅 ' + h.fecha,
+          title: h.registro ? 'Registrado en el sistema: ' + h.registro : '' }),
         h.ubicacion ? el('div', { class: 'meta', text: '📍 ' + h.ubicacion }) : null,
         el('div', { class: 'desc', text: h.descripcion }),
         h.reportadoPor ? el('div', { class: 'meta', text: 'Reportó: ' + h.reportadoPor }) : null,
