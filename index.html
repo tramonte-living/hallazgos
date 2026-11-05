@@ -57,7 +57,7 @@
   .tarjeta.peligro { border-color: var(--error); }
   .tarjeta.peligro h2 { color: var(--error); }
   
-    .archivos { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+    .archivos { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
     .archivo { display: flex; align-items: center; gap: 10px; border: 1px solid var(--borde); border-radius: 8px; padding: 6px; }
     .archivo.malo { border-color: var(--error); background: #fff4f2; }
   .archivo.manual { border-color: var(--aviso); background: #fff8eb; }
@@ -73,11 +73,19 @@
     .archivo .info { flex: 1; min-width: 0; font-size: .85rem; }
     .archivo .nombre { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .archivo .quitar { background: none; border: 0; font-size: 1.3rem; cursor: pointer; color: var(--gris); }
-    .archivo .estado-sub { font-size: .8rem; }
+    .archivo .estado-sub { font-size: .8rem; overflow-wrap: anywhere; }
   
     .progreso { margin-top: 12px; }
   .subir.desactivado { opacity: .45; pointer-events: none; }
+  .botones-ev { display: flex; gap: 8px; flex-wrap: wrap; }
+  .botones-ev .subir { flex: 1 1 140px; text-align: center; }
+  #ev-contador { font-weight: normal; color: var(--gris); }
   #envio-pendiente { margin: 10px 0; }
+  .bandeja { border: 2px solid var(--aviso); background: #fff8eb; }
+  .bandeja-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .bandeja-cab b { font-size: .95rem; }
+  #bandeja-lista .archivo { background: #fff; }
+  #btn-guardar-despues { margin-top: 8px; width: 100%; }
     .barra-prog { height: 10px; background: #e3e9ef; border-radius: 6px; overflow: hidden; }
     #barra-prog-in { height: 100%; width: 0; background: var(--azul2); transition: width .3s; }
   
@@ -145,7 +153,7 @@
   </style>
 </head>
 <body>
-  <div id="banner-prueba" class="banner-prueba" hidden>🧪 AMBIENTE DE PRUEBA · los datos de aquí no son reales</div>
+  <div id="banner-prueba" class="banner-prueba" hidden>🧪 AMBIENTE DE PRUEBA · lo que reportes aquí es solo de práctica y no se envía a la interventoría</div>
   <header class="barra">
     <div class="marca">🏢 <b>Tramonte</b> · Hallazgos</div>
     <div id="usuario" class="usuario" hidden>
@@ -213,6 +221,14 @@
 
       <!-- Reportar -->
       <div id="t-reportar" class="panel">
+        <div id="bandeja" class="tarjeta bandeja" hidden>
+          <div class="bandeja-cab">
+            <b id="bandeja-txt"></b>
+            <button id="btn-enviar-pend" class="btn mini" type="button">📤 Enviar ahora</button>
+          </div>
+          <p class="ayuda" id="bandeja-ayuda">Guardados en este celular. No existen para la interventoría hasta que se envíen.</p>
+          <ul id="bandeja-lista" class="archivos"></ul>
+        </div>
         <form id="f-reporte" class="tarjeta" novalidate>
           <div class="campo" id="campo-libro">
             <label for="sel-libro">Torre / Libro</label>
@@ -247,13 +263,19 @@
           </div>
 
           <div class="campo">
-            <label>Fotos / videos</label>
-            <label class="btn btn-sec subir" id="subir-archivos">
-              ➕ Agregar fotos o videos
-              <input id="in-archivos" type="file" accept="image/*,video/*" multiple hidden>
-            </label>
-            <p class="ayuda">Puede agregar varios. Los archivos de más de <span id="limite-mb">50</span> MB no se suben
-              por la página: al enviar se le indicará cómo entregarlos.</p>
+            <label>Fotos / videos <span id="ev-contador"></span></label>
+            <div class="botones-ev">
+              <label class="btn subir" id="subir-camara" hidden>
+                📷 Tomar foto
+                <input id="in-camara" type="file" accept="image/*" capture="environment" hidden>
+              </label>
+              <label class="btn btn-sec subir" id="subir-archivos">
+                <span id="txt-galeria">➕ Agregar fotos o videos</span>
+                <input id="in-archivos" type="file" accept="image/*,video/*" multiple hidden>
+              </label>
+            </div>
+            <p class="ayuda">Máximo <span id="max-ev">5</span> por hallazgo. Los archivos de más de <span id="limite-mb">50</span> MB
+              no se suben por la página: al enviar se le indicará cómo entregarlos.</p>
             <ul id="lista-archivos" class="archivos"></ul>
           </div>
 
@@ -263,6 +285,7 @@
             <button id="btn-descartar-envio" class="btn btn-sec mini" type="button">Descartar</button>
           </div>
           <button id="btn-enviar" class="btn grande" type="submit">Enviar reporte</button>
+          <button id="btn-guardar-despues" class="btn btn-sec" type="button">📥 Guardar para enviar después</button>
           <div id="progreso" class="progreso" hidden>
             <div class="barra-prog"><div id="barra-prog-in"></div></div>
             <p id="progreso-txt"></p>
@@ -349,6 +372,18 @@
             <label for="a-limite">Límite por archivo (MB)</label>
             <input id="a-limite" type="number" min="1" max="2000">
           </div>
+          <div class="campo corto">
+            <label for="a-maxev">Máximo de fotos/videos por hallazgo</label>
+            <input id="a-maxev" type="number" min="1" max="30">
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="a-camara">
+            <span>Mostrar "📷 Tomar foto" a los usuarios de torre (el administrador siempre lo ve)</span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="a-marca">
+            <span>Marca de agua en las fotos tomadas con la app (ID, fecha, hora y GPS)</span>
+          </label>
           <button id="a-guardar" class="btn" type="button">Guardar ajustes</button>
         </div>
         <div class="tarjeta">
@@ -406,7 +441,8 @@
   const API_URL = 'https://script.google.com/macros/s/AKfycbwyt2shaNYngZjdhXxJXtQHWLJYC4SK4njyftSbi4GdeiW6tmCP82K_407X70GGXPiB/exec'; // publicar.py lo reemplaza según el ambiente
   const ES_PRUEBA = false;
   // Tiempo máximo de espera de las llamadas del envío (las demás esperan lo que tome el servidor).
-  const TIEMPO_MAX = { api_crearHallazgo: 90000, api_finalizarHallazgo: 90000 };
+  // api_inicio: con señal muy débil (sótano) se entra con los datos guardados en vez de quedarse cargando.
+  const TIEMPO_MAX = { api_inicio: 15000, api_crearHallazgo: 90000, api_finalizarHallazgo: 90000 };
   function api(fn) { return llamar(fn, Array.prototype.slice.call(arguments, 1), TIEMPO_MAX[fn]); }
   /** Error de conexión (sin señal, tiempo agotado o respuesta cortada): se puede reintentar. */
   function errorRed(msg) { const e = new Error(msg); e.red = true; return e; }
@@ -488,30 +524,64 @@
     try {
       const d = await api('api_inicio', token || '');
       if (d.necesitaIngreso) {
-        localStorage.removeItem(LS_CODIGO);
+        localStorage.removeItem(LS_CODIGO); localStorage.removeItem(LS_DATOS);
         vista('v-ingreso');
         return;
       }
       entrar(d);
     } catch (e) {
-      localStorage.removeItem(LS_CODIGO);
+      // Sin conexión (sótano): se entra con los datos de la última vez; la sesión NO se borra.
+      const guardados = e.red && datosGuardados(token);
+      if (guardados) return entrar(guardados, true);
+      if (!e.red) localStorage.removeItem(LS_CODIGO);
       vista('v-ingreso');
-      mostrarIngresoMsg(msgError(e));
+      mostrarIngresoMsg(e.red ? 'Sin conexión. Cuando tengas señal, recarga la página.' : msgError(e));
     }
   }
-  /** d: respuesta de api_inicio / api_ingresar / api_cambiarClave. */
-  function entrar(d) {
+  // Datos para usar la página sin conexión: solo lo que necesita el formulario (nada de administración).
+  const LS_DATOS = 'hz_datos';
+  const CAMPOS_SIN_CONEXION = ['sesion', 'libros', 'categorias', 'estados', 'limiteMB', 'maxEvidencias', 'camara', 'marcaAgua'];
+  function guardarDatos(d) {
+    const o = {}; CAMPOS_SIN_CONEXION.forEach(k => { o[k] = d[k]; });
+    try { localStorage.setItem(LS_DATOS, JSON.stringify(o)); } catch (e) { /* sin espacio: se sigue */ }
+  }
+  function datosGuardados(token) {
+    try {
+      const d = JSON.parse(localStorage.getItem(LS_DATOS) || 'null');
+      return d && token && d.sesion && d.sesion.token === token ? d : null;
+    } catch (e) { return null; }
+  }
+  /** d: respuesta de api_inicio / api_ingresar / api_cambiarClave (o los datos guardados, sinConexion). */
+  function entrar(d, sinConexion) {
     st.codigo = d.sesion.token;
     localStorage.setItem(LS_CODIGO, st.codigo);
-    st.datos = d;
+    st.datos = d; st.sinConexion = !!sinConexion;
+    if (!sinConexion && !d.sesion.debeCambiar) guardarDatos(d);
     $('in-clave').value = '';
     mostrarIngresoMsg('');
     montarApp();
+    if (sinConexion) {
+      $('tab-admin').hidden = true;
+      toast('📶 Sin conexión: usando los datos de tu última visita. Puedes reportar y guardar para enviar después.');
+    }
     if (d.sesion.debeCambiar) abrirCambioClave(true);
     else vista('v-app');
   }
+  /** Al volver la señal tras entrar sin conexión: actualiza los datos y revisa la sesión sin borrar el formulario. */
+  async function reconectar() {
+    if (!st.sinConexion || !st.codigo) return;
+    try {
+      const d = await api('api_inicio', st.codigo);
+      if (d.necesitaIngreso) return sesionVencida('Tu sesión venció. Ingresa de nuevo (tus reportes pendientes siguen guardados).');
+      st.sinConexion = false;
+      Object.assign(st.datos, d); guardarDatos(d);
+      $('tab-admin').hidden = d.sesion.rol !== 'ADMIN';
+      if (d.ajustes && !formularioConDatos()) montarApp(); // admin: llena Admin (con un reporte a medias, al recargar)
+    } catch (e) { /* sigue sin conexión */ }
+  }
+  window.addEventListener('online', reconectar);
   function sesionVencida(msg) {
-    localStorage.removeItem(LS_CODIGO);
+    localStorage.removeItem(LS_CODIGO); localStorage.removeItem(LS_DATOS);
     st.codigo = ''; st.datos = null;
     $('usuario').hidden = true; $('in-clave').value = '';
     vista('v-ingreso'); mostrarIngresoMsg(msg);
@@ -555,7 +625,7 @@
   });
   $('btn-salir').addEventListener('click', () => {
     if (st.codigo) api('api_salir', st.codigo).catch(() => {});
-    localStorage.removeItem(LS_CODIGO);
+    localStorage.removeItem(LS_CODIGO); localStorage.removeItem(LS_DATOS);
     st.codigo = ''; st.datos = null;
     $('usuario').hidden = true; $('in-clave').value = ''; mostrarIngresoMsg('');
     iniciar('');
@@ -569,7 +639,8 @@
     $('u-temporal').hidden = true; $('a-reset-tarjeta').hidden = true;
     $('c-total').textContent = ''; $('c-buscar').value = '';
     $('u-buscar').value = ''; $('u-filtro').innerHTML = ''; $('u-total').textContent = ''; st.usuarios = null; st.uAbierto = null;
-    st.lista = []; st.archivos = []; st.envio = null;
+    st.lista = []; st.archivos = []; st.envio = null; st.actual = null; st.actualEnCola = false; st.actualCreado = null; st.sinBorrador = false;
+    $('bandeja').hidden = true; $('bandeja-lista').innerHTML = '';
     $('resultado').hidden = true; $('res-manual').hidden = true; $('f-reporte').hidden = false;
     $('in-ubicacion').value = ''; $('in-descripcion').value = ''; $('in-reporta').value = '';
   }
@@ -582,6 +653,8 @@
     $('tab-admin').hidden = s.rol !== 'ADMIN';
     limpiarPantalla();
     $('limite-mb').textContent = d.limiteMB;
+    $('subir-camara').hidden = !d.camara;
+    $('txt-galeria').textContent = d.camara ? '🖼️ Galería' : '➕ Agregar fotos o videos';
 
     const libros = d.libros.map(l => ({ value: l.id, text: l.nombre }));
     opciones($('sel-libro'), libros);
@@ -591,6 +664,7 @@
     opciones($('sel-categoria'), d.categorias, 'Seleccione…');
     fechaHoy();
     pintarEnvio();
+    recuperarDelCelular();
 
     opciones($('c-libro'), libros);
     if (s.libro) $('c-libro').value = s.libro;
@@ -599,6 +673,9 @@
     if (d.ajustes) {
       $('a-cualquier').checked = !!d.ajustes.cualquierTorre;
       $('a-limite').value = d.ajustes.limiteMB;
+      $('a-maxev').value = d.ajustes.maxEvidencias;
+      $('a-camara').checked = !!d.ajustes.camaraTorres;
+      $('a-marca').checked = !!d.ajustes.marcaAgua;
       $('a-fallos').textContent = '🔒 Intentos de ingreso fallidos en la última hora: ' + (d.ajustes.fallosHora || 0) +
         (d.ajustes.fallosHora > 20 ? ' ⚠️ Muchos intentos: revise los usuarios bloqueados.' : '');
       opciones($('u-libro'), d.librosAdmin.map(l => ({ value: l.id, text: l.nombre })).concat([{ value: 'ADMIN', text: 'Administrador' }]));
@@ -633,27 +710,149 @@
   function zonasDeLibro(id) { const l = st.datos.libros.find(x => x.id === id); return l ? l.zonas : []; }
   function actualizarZonas() { opciones($('sel-zona'), zonasDeLibro($('sel-libro').value), 'Seleccione…'); }
   $('sel-libro').addEventListener('change', actualizarZonas);
+  $('f-reporte').addEventListener('input', () => guardarBorrador());
+  $('f-reporte').addEventListener('change', () => guardarBorrador());
 
-  $('in-archivos').addEventListener('change', ev => {
-    Array.prototype.forEach.call(ev.target.files, f => st.archivos.push({ file: f, url: /^image\//.test(f.type) ? URL.createObjectURL(f) : null }));
-    ev.target.value = '';
+  const maxEvidencias = () => st.datos.maxEvidencias || 5;
+  function agregarArchivos(files, captura) {
+    const cupo = maxEvidencias() - st.archivos.length;
+    if (files.length > cupo) toast('Máximo ' + maxEvidencias() + ' fotos o videos por hallazgo' +
+      (cupo > 0 ? ': se agregaron ' + cupo + '.' : '.'), true);
+    files.slice(0, Math.max(0, cupo)).forEach(f => st.archivos.push({
+      file: f, url: /^image\//.test(f.type) ? URL.createObjectURL(f) : null, captura: captura || null }));
     pintarArchivos();
+  }
+  $('in-archivos').addEventListener('change', ev => {
+    const files = Array.from(ev.target.files); ev.target.value = '';
+    agregarArchivos(files);
+  });
+  // Cámara: el GPS se enciende al abrirla (mientras se encuadra) y cada foto guarda la hora de la toma y su ubicación.
+  $('subir-camara').addEventListener('click', () => { if (st.datos.marcaAgua) gpsEncender(GPS_AFINAR); });
+  $('in-camara').addEventListener('change', ev => {
+    const files = Array.from(ev.target.files); ev.target.value = '';
+    if (!files.length) return;
+    const ahora = Date.now(), g = st.gps && ahora - st.gps.t < GPS_AFINAR ? st.gps : null;
+    const captura = { fecha: new Date(ahora), gps: g, primera: g, camara: true, fija: !st.datos.marcaAgua };
+    agregarArchivos(files, captura);
+    if (captura.fija) return;
+    gpsEncender(GPS_AFINAR);
+    setTimeout(() => { captura.fija = true; pintarArchivos(); gpsRevisarApagado(); }, GPS_AFINAR);
   });
 
+  // ---------- ubicación (GPS) ----------
+  // Un solo GPS escuchando mientras haya fotos "afinando": cada foto se queda, durante sus primeros 30 s, con la
+  // lectura más precisa que esté cerca de su primera lectura (si la persona camina, no se le pega otro lugar).
+  const GPS_AFINAR = 30000;      // ms después de la toma en que la ubicación de la foto puede mejorar
+  const GPS_DISTANCIA_MAX = 50;  // m: lecturas más lejanas de la primera se descartan (salto del GPS o se movió)
+  function gpsEncender(ms) {
+    if (!navigator.geolocation || st.gpsError === 'bloqueada') return;
+    st.gpsHasta = Math.max(st.gpsHasta || 0, Date.now() + ms);
+    if (st.gpsVigia != null) return;
+    st.gpsVigia = navigator.geolocation.watchPosition(gpsLectura, err => {
+      if (err.code === 1) { // permiso negado: no se vuelve a pedir en esta visita
+        st.gpsError = 'bloqueada'; gpsApagar(); pintarArchivos();
+        toast('📍 Ubicación bloqueada: actívala en los permisos del navegador para que las fotos lleven GPS.', true);
+      } else st.gpsError = 'sin señal';
+    }, { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
+    setTimeout(gpsRevisarApagado, ms + 1000);
+  }
+  function gpsApagar() {
+    if (st.gpsVigia != null) navigator.geolocation.clearWatch(st.gpsVigia);
+    st.gpsVigia = null;
+  }
+  /** Apaga el GPS cuando ya no hay fotos afinando ni la cámara recién abierta. */
+  function gpsRevisarApagado() {
+    const afinando = st.archivos.some(a => a.captura && !a.captura.fija);
+    if (!afinando && Date.now() >= (st.gpsHasta || 0)) gpsApagar();
+  }
+  function distanciaM(a, b) {
+    const r = Math.PI / 180, x = (b.lng - a.lng) * r * Math.cos((a.lat + b.lat) * r / 2), y = (b.lat - a.lat) * r;
+    return Math.sqrt(x * x + y * y) * 6371000;
+  }
+  function gpsLectura(p) {
+    const g = { lat: p.coords.latitude, lng: p.coords.longitude, prec: Math.round(p.coords.accuracy || 0), t: Date.now() };
+    st.gps = g; st.gpsError = null;
+    let cambio = false;
+    st.archivos.forEach(a => {
+      const c = a.captura;
+      if (!c || c.fija || g.t - c.fecha > GPS_AFINAR) return;
+      if (!c.primera) { c.primera = c.gps = g; cambio = true; return; }
+      if (g.prec < c.gps.prec && distanciaM(c.primera, g) <= Math.max(GPS_DISTANCIA_MAX, c.primera.prec)) { c.gps = g; cambio = true; }
+    });
+    if (cambio) pintarArchivos();
+  }
+  const textoGps = g => g ? 'GPS ' + g.lat.toFixed(5) + ', ' + g.lng.toFixed(5) + ' (±' + g.prec + ' m)' : 'GPS no disponible';
+  const fechaHora = d => d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' +
+    d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+
+  // ---------- marca de agua ----------
+  // Se aplica al enviar (ya se conoce el ID). Si falla, la foto se sube sin marca: nunca bloquea el envío.
+  const LADO_MAX = 4000; // los navegadores de iPhone no procesan imágenes mucho más grandes en un canvas
+  function cargarImagen(file) {
+    return new Promise((ok, mal) => {
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); ok(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); mal(new Error('No se pudo leer la imagen.')); };
+      img.src = url;
+    });
+  }
+  async function marcarFoto(file, lineas) {
+    const img = await cargarImagen(file); // la orientación (foto vertical) la aplica el navegador
+    const esc = Math.min(1, LADO_MAX / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.round(img.naturalWidth * esc), h = Math.round(img.naturalHeight * esc);
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const cx = cv.getContext('2d');
+    cx.drawImage(img, 0, 0, w, h);
+    const fs = Math.max(14, Math.round(Math.min(w, h) * 0.03)), alto = Math.round(fs * (lineas.length * 1.35 + 0.8));
+    cx.fillStyle = 'rgba(0,0,0,0.55)'; cx.fillRect(0, h - alto, w, alto);
+    cx.fillStyle = '#fff'; cx.textBaseline = 'top'; cx.font = 'bold ' + fs + 'px Arial, sans-serif';
+    lineas.forEach((t, i) => cx.fillText(t, Math.round(fs * 0.6), h - alto + Math.round(fs * (0.4 + i * 1.35)), w - fs * 1.2));
+    cx.font = fs * 0.8 + 'px Arial, sans-serif'; cx.textAlign = 'right';
+    cx.fillText('Tramonte Living', w - Math.round(fs * 0.6), h - alto + Math.round(fs * 1.75)); // en la 2.ª línea (la más corta)
+    const blob = await new Promise((ok, mal) => cv.toBlob(b => b ? ok(b) : mal(new Error('No se pudo generar la imagen.')), 'image/jpeg', 0.9));
+    cv.width = cv.height = 0; // libera memoria (celulares)
+    return new File([blob], file.name.replace(/\.[^.]*$/, '') + '.jpg', { type: 'image/jpeg', lastModified: Date.now() });
+  }
+  /** Antes de subir una foto de la cámara: marca de agua (si está activa) y texto para la descripción en Drive. */
+  async function prepararCaptura(a, id) {
+    if (!a.captura || a.preparada) return;
+    const c = a.captura, f = leerFormulario();
+    c.fija = true; // al enviar se usa la mejor ubicación conseguida hasta ahora
+    a.info = 'Tomada con la app: ' + fechaHora(c.fecha) + ' · ' + textoGps(c.gps) + ' · ' + (st.datos.sesion.usuario || '');
+    if (st.datos.marcaAgua && /^image\//.test(a.file.type)) {
+      try {
+        a.file = await marcarFoto(a.file, [
+          id + ' · ' + nombreLibro(f.libro) + ' · ' + f.zona + ' · ' + f.categoria,
+          fechaHora(c.fecha) + ' · ' + (st.datos.sesion.usuario || ''),
+          textoGps(c.gps),
+        ]);
+        a.info += ' · con marca de agua';
+      } catch (e) { a.info += ' · sin marca de agua (' + msgError(e) + ')'; }
+    }
+    a.preparada = true;
+  }
+
   function pintarArchivos() {
+    guardarBorrador();
     const ul = $('lista-archivos'); ul.innerHTML = '';
-    const limite = st.datos.limiteMB * 1048576;
+    const limite = st.datos.limiteMB * 1048576, max = maxEvidencias(), lleno = st.archivos.length >= max;
+    $('max-ev').textContent = max;
+    $('ev-contador').textContent = st.archivos.length ? '(' + st.archivos.length + ' de ' + max + ')' : '';
+    document.querySelectorAll('.botones-ev .subir').forEach(b => b.classList.toggle('desactivado', lleno || enCurso()));
     st.archivos.forEach((a, i) => {
       const tipoOk = /^(image|video)\//.test(a.file.type);
       a.malo = !tipoOk;
       a.manual = tipoOk && a.file.size > limite;
       const mini = a.url ? el('img', { class: 'mini', src: a.url, alt: '' }) : el('div', { class: 'mini', text: /^video/.test(a.file.type) ? '🎬' : '📄' });
+      const toma = a.captura ? ' · 📷 ' + a.captura.fecha.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) +
+        (st.datos.marcaAgua ? ' · 📍 ' + (a.captura.gps ? '±' + a.captura.gps.prec + ' m' + (a.captura.fija ? '' : ' (afinando…)')
+          : st.gpsError === 'bloqueada' ? 'ubicación bloqueada' : a.captura.fija ? 'sin ubicación' : 'buscando…') : '') : '';
       const nota = !tipoOk ? 'Tipo no permitido' : a.estado ||
-        (a.manual ? mb(a.file.size) + ' · supera ' + st.datos.limiteMB + ' MB: se entregará manualmente' : mb(a.file.size));
+        (a.manual ? mb(a.file.size) + ' · supera ' + st.datos.limiteMB + ' MB: se entregará manualmente' : mb(a.file.size) + toma);
       ul.appendChild(el('li', { class: 'archivo' + (a.malo ? ' malo' : a.manual || a.fallo ? ' manual' : '') }, [
         mini,
         el('div', { class: 'info' }, [
-          el('div', { class: 'nombre', text: (i + 1) + '. ' + a.file.name }),
+          el('div', { class: 'nombre', title: a.file.name, text: (i + 1) + '. ' + (a.captura ? '📷 Foto tomada con la app' : a.file.name) }),
           el('div', { class: 'estado-sub', text: nota }),
         ]),
         enCurso() ? null : el('button', { class: 'quitar', type: 'button', title: 'Quitar', text: '✕', onclick: () => {
@@ -715,7 +914,11 @@
   // Enviando o con un envío a medias: el navegador pregunta antes de cerrar o recargar.
   window.addEventListener('beforeunload', ev => { if (st.enviando || enCurso()) { ev.preventDefault(); ev.returnValue = ''; } });
   // El texto del aviso de pausa cambia si se pierde o vuelve la señal.
-  ['online', 'offline'].forEach(n => window.addEventListener(n, () => { if (enCurso() && !st.enviando) pintarEnvio(); }));
+  ['online', 'offline'].forEach(n => window.addEventListener(n, () => {
+    textoGuardarDespues();
+    if (enCurso() && !st.enviando) pintarEnvio();
+    if (st.datos) pintarBandeja(n === 'online');
+  }));
 
   // ---------- subida de archivos ----------
   // Por partes (resumible): el motor abre una sesión de carga en Drive y el navegador sube trozos directo a Drive;
@@ -726,6 +929,7 @@
 
   /** Sube el archivo a[i] y devuelve el nombre con que quedó en Drive. */
   async function subirArchivo(a, id, ticket, i, total) {
+    if (a.captura && !a.preparada) { progreso(5 + 90 * i / total, 'Preparando foto ' + (i + 1) + ' de ' + total + '…'); await prepararCaptura(a, id); }
     if (!a.sinPartes) {
       try { return await subirPorPartes(a, id, ticket, i, total); }
       catch (e) {
@@ -738,7 +942,7 @@
     const ms = 120000 + Math.ceil(a.file.size / 3145728) * 60000;
     const b64 = await leerBase64(a.file);
     const res = await conReintentos(() => llamar('api_subirEvidencia',
-      [st.codigo, id, ticket, a.indice, a.file.name, a.file.type, b64], ms),
+      [st.codigo, id, ticket, a.indice, a.file.name, a.file.type, b64, a.info || ''], ms),
       'Subiendo ' + (i + 1) + ' de ' + total + ' (' + mb(a.file.size) + ')…', 5 + 90 * i / total);
     return res.nombre;
   }
@@ -767,7 +971,7 @@
     return conReintentos(async () => {
       if (!a.sesion) {
         try {
-          const r = await api('api_iniciarSubida', st.codigo, id, ticket, a.indice, a.file.name, a.file.type, tam);
+          const r = await api('api_iniciarSubida', st.codigo, id, ticket, a.indice, a.file.name, a.file.type, tam, a.info || '');
           a.sesion = r.url; a.nombreFinal = r.nombre; a.enviado = 0; a.verificar = false;
         } catch (e) {
           if (/SUBIDA_NO_DISPONIBLE|^Acción no válida/.test(e.message)) e.noDisponible = true; // motor sin la función nueva
@@ -815,13 +1019,211 @@
     throw new Error('Google Drive rechazó el archivo (' + r.status + (msg ? ': ' + msg : '') + ').');
   }
 
+  // ---------- borrador y bandeja de salida (guardados en el celular) ----------
+  // El reporte que se está llenando se guarda solo (si la página se recarga, p. ej. al volver de la cámara, se
+  // recupera). "Guardar para enviar después" lo pasa a la bandeja; con señal se envían uno por uno con el flujo normal.
+  // IndexedDB: 'reportes' (datos del formulario y estado del envío) y 'archivos' (cada foto/video una sola vez).
+  const BD_NOMBRE = 'hz_bandeja';
+  let bdPromesa = null;
+  function bd() {
+    if (!bdPromesa) bdPromesa = new Promise((ok, mal) => {
+      if (!window.indexedDB) return mal(new Error('Este navegador no permite guardar reportes en el celular.'));
+      const r = indexedDB.open(BD_NOMBRE, 1);
+      r.onupgradeneeded = () => {
+        r.result.createObjectStore('reportes', { keyPath: 'clave' });
+        r.result.createObjectStore('archivos', { keyPath: 'fid' });
+      };
+      r.onsuccess = () => ok(r.result);
+      r.onerror = () => mal(r.error);
+    });
+    return bdPromesa;
+  }
+  /** Ejecuta fn(tienda...) en una transacción; resuelve con el resultado de la última petición. */
+  async function bdTx(tiendas, modo, fn) {
+    const db = await bd();
+    return new Promise((ok, mal) => {
+      const tx = db.transaction(tiendas, modo);
+      let req = fn.apply(null, tiendas.map(t => tx.objectStore(t)));
+      tx.oncomplete = () => ok(req && req.result);
+      tx.onerror = () => mal(tx.error); tx.onabort = () => mal(tx.error || new Error('No se pudo guardar en el celular.'));
+    });
+  }
+  const misReportes = () => bdTx(['reportes'], 'readonly', r => r.getAll())
+    .then(l => l.filter(x => x.usuarioId === st.datos.sesion.usuarioId)).catch(() => []);
+  async function bdQuitarReporte(clave) {
+    try {
+      await bdTx(['reportes', 'archivos'], 'readwrite', (r, a) => {
+        const req = r.get(clave);
+        req.onsuccess = () => { if (req.result) (req.result.fids || []).forEach(f => a.delete(f)); r.delete(clave); };
+        return req;
+      });
+    } catch (e) { /* sin almacenamiento */ }
+  }
+  function claveBorrador() { if (!st.actual) st.actual = claveAleatoria(); return st.actual; }
+  const formularioConDatos = () => !!(st.archivos.length || $('in-descripcion').value.trim() || $('in-ubicacion').value.trim() || st.envio);
+
+  let relojBorrador = null;
+  /** Guarda el formulario en el celular (agrupa cambios seguidos). */
+  function guardarBorrador() {
+    if (!st.datos || st.sinBorrador) return;
+    clearTimeout(relojBorrador);
+    relojBorrador = setTimeout(guardarBorradorYa, 700);
+  }
+  async function guardarBorradorYa() {
+    clearTimeout(relojBorrador);
+    if (!st.datos || st.sinBorrador) return;
+    if (!formularioConDatos()) { // formulario vacío: no hay nada que recuperar
+      if (st.actual && !st.actualEnCola) { const c = st.actual; st.actual = null; await bdQuitarReporte(c); }
+      return;
+    }
+    const clave = claveBorrador();
+    const nuevos = st.archivos.filter(a => !a.fid || a.fidDe !== a.file);
+    nuevos.forEach(a => { a.fid = claveAleatoria(); a.fidDe = a.file; });
+    const rec = {
+      clave, usuarioId: st.datos.sesion.usuarioId, enCola: !!st.actualEnCola, creado: st.actualCreado || Date.now(),
+      guardado: Date.now(), datos: leerFormulario(), envio: st.envio ? Object.assign({}, st.envio) : null,
+      fids: st.archivos.map(a => a.fid),
+      archivos: st.archivos.map(a => ({
+        fid: a.fid, nombre: a.file.name, tipo: a.file.type, tam: a.file.size,
+        captura: a.captura ? Object.assign({}, a.captura, { fecha: +a.captura.fecha }) : null,
+        indice: a.indice, hecho: !!a.hecho, pendiente: !!a.pendiente, fallo: !!a.fallo, estado: a.estado || '',
+        sesion: a.sesion || null, enviado: a.enviado || 0, nombreFinal: a.nombreFinal || '', info: a.info || '',
+        preparada: !!a.preparada, sinPartes: !!a.sinPartes, verificar: !!a.verificar,
+      })),
+    };
+    st.actualCreado = rec.creado;
+    try {
+      await bdTx(['reportes', 'archivos'], 'readwrite', (r, ar) => {
+        nuevos.forEach(a => ar.put({ fid: a.fid, blob: a.file }));
+        const previo = r.get(clave);
+        previo.onsuccess = () => {
+          (previo.result && previo.result.fids || []).filter(f => rec.fids.indexOf(f) < 0).forEach(f => ar.delete(f));
+          r.put(rec);
+        };
+        return previo;
+      });
+    } catch (e) {
+      nuevos.forEach(a => { a.fid = null; }); // se reintenta en el próximo guardado
+      if (!st.avisoSinEspacio) { st.avisoSinEspacio = true; toast('⚠️ No se pudo guardar una copia en el celular (' + msgError(e) + ').', true); }
+    }
+  }
+  /** Tras un envío completo: la copia ya no hace falta. */
+  function borradorEnviado() {
+    const c = st.actual;
+    st.sinBorrador = true; st.actual = null; st.actualEnCola = false; st.actualCreado = null; clearTimeout(relojBorrador);
+    if (c) bdQuitarReporte(c).then(pintarBandeja);
+  }
+  /** Pone en el formulario un reporte guardado. */
+  async function cargarEnFormulario(rec) {
+    const blobs = await bdTx(['archivos'], 'readonly', a => a.getAll());
+    const porFid = {}; blobs.forEach(b => { porFid[b.fid] = b.blob; });
+    st.archivos.forEach(a => a.url && URL.revokeObjectURL(a.url));
+    const d = rec.datos || {};
+    if (st.datos.libros.some(l => l.id === d.libro)) { $('sel-libro').value = d.libro; actualizarZonas(); }
+    $('sel-zona').value = d.zona || ''; $('sel-categoria').value = d.categoria || '';
+    $('in-fecha').value = d.fechaReporte || hoyISO(); $('in-ubicacion').value = d.ubicacion || '';
+    $('in-descripcion').value = d.descripcion || ''; $('in-reporta').value = d.reportadoPor || '';
+    st.archivos = rec.archivos.filter(x => porFid[x.fid]).map(x => {
+      const b = porFid[x.fid];
+      const file = b instanceof File && b.name ? b : new File([b], x.nombre, { type: x.tipo });
+      return Object.assign({}, x, { file, fidDe: file, url: /^image\//.test(x.tipo) ? URL.createObjectURL(file) : null,
+        verificar: !!(x.sesion && !x.hecho), // subida a medias: se pregunta a Drive cuánto recibió
+        captura: x.captura ? Object.assign({}, x.captura, { fecha: new Date(x.captura.fecha), fija: true }) : null });
+    });
+    const perdidos = rec.archivos.length - st.archivos.length;
+    st.envio = rec.envio || null;
+    st.actual = rec.clave; st.actualEnCola = !!rec.enCola; st.actualCreado = rec.creado; st.sinBorrador = false;
+    pintarEnvio();
+    if (perdidos) toast('⚠️ ' + perdidos + ' archivo(s) de este reporte ya no estaban guardados en el celular.', true);
+  }
+  /** Al entrar: recupera el reporte que se estaba llenando y muestra la bandeja. */
+  async function recuperarDelCelular() {
+    const lista = await misReportes();
+    const borrador = lista.filter(r => !r.enCola).sort((a, b) => b.guardado - a.guardado)[0];
+    if (borrador && !formularioConDatos()) {
+      try { await cargarEnFormulario(borrador); toast('💾 Se recuperó el reporte que estabas llenando.'); }
+      catch (e) { /* sin almacenamiento */ }
+    }
+    pintarBandeja();
+  }
+  async function guardarParaDespues(sinSenal) {
+    st.actualEnCola = true;
+    await guardarBorradorYa();
+    if (!st.actual) return; // no se pudo guardar (ya se avisó)
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    reiniciarFormulario();
+    $('resultado').hidden = true; $('f-reporte').hidden = false;
+    await pintarBandeja();
+    toast((sinSenal ? '📶 Sin señal: ' : '') + '📥 Guardado en pendientes. Envíalo con "📤 Enviar ahora" cuando tengas señal.');
+    window.scrollTo(0, 0);
+  }
+  async function pintarBandeja(volvioSenal) {
+    if (!st.datos) return;
+    const cola = (await misReportes()).filter(r => r.enCola && r.clave !== (st.actualEnCola ? st.actual : '')).sort((a, b) => a.creado - b.creado);
+    const ul = $('bandeja-lista'); ul.innerHTML = '';
+    $('bandeja').hidden = !cola.length;
+    if (!cola.length) return;
+    const bytes = cola.reduce((t, r) => t + r.archivos.reduce((u, x) => u + (x.tam || 0), 0), 0);
+    $('bandeja-txt').textContent = '📤 ' + cola.length + ' reporte(s) pendiente(s) de envío · ' + mb(bytes);
+    $('btn-enviar-pend').disabled = !!(st.enviando || st.enviandoBandeja);
+    cola.forEach(r => {
+      const d = r.datos || {}, n = r.archivos.length;
+      ul.appendChild(el('li', { class: 'archivo' }, [
+        el('div', { class: 'mini', text: n ? '📷' : '📝' }),
+        el('div', { class: 'info' }, [
+          el('div', { class: 'nombre', text: (d.zona || '¿zona?') + ' · ' + (d.categoria || '¿categoría?') + (r.envio && r.envio.id ? ' · ' + r.envio.id : '') }),
+          el('div', { class: 'estado-sub', text: n + ' archivo(s) · guardado ' + fechaHora(new Date(r.creado)) +
+            (d.descripcion ? ' · ' + d.descripcion.slice(0, 60) : '') }),
+        ]),
+        el('button', { class: 'quitar', type: 'button', title: 'Eliminar', text: '🗑️', onclick: async () => {
+          if (!confirm('¿Eliminar este reporte pendiente del celular? ' + (r.envio && r.envio.id
+            ? 'El hallazgo ' + r.envio.id + ' ya está registrado como "Incompleto".' : 'No se enviará.'))) return;
+          await bdQuitarReporte(r.clave); pintarBandeja();
+        } }),
+      ]));
+    });
+    if (volvioSenal) toast('📶 Volvió la señal: tienes ' + cola.length + ' reporte(s) pendiente(s). Pulsa "📤 Enviar ahora".');
+  }
+  $('btn-enviar-pend').addEventListener('click', enviarPendientes);
+  async function enviarPendientes() {
+    if (st.enviando || st.enviandoBandeja) return;
+    if (navigator.onLine === false) return toast('Sin señal todavía: inténtalo cuando vuelva.', true);
+    if (formularioConDatos() && !st.actualEnCola && $('resultado').hidden) {
+      if (!confirm('Tienes un reporte en el formulario sin enviar: se guardará en pendientes y se enviarán todos. ¿Continuar?')) return;
+      st.actualEnCola = true; await guardarBorradorYa();
+    }
+    st.enviandoBandeja = true;
+    let enviados = 0;
+    try {
+      for (;;) {
+        const cola = (await misReportes()).filter(r => r.enCola).sort((a, b) => a.creado - b.creado);
+        if (!cola.length) break;
+        reiniciarFormulario();
+        $('resultado').hidden = true; $('res-manual').hidden = true; $('f-reporte').hidden = false;
+        await cargarEnFormulario(cola[0]);
+        await pintarBandeja();
+        toast('📤 Enviando pendiente ' + (enviados + 1) + ' de ' + (enviados + cola.length) + '…');
+        if (!(await enviar())) break; // en pausa o con error: queda en el formulario ("Reintentar envío")
+        enviados++;
+      }
+    } finally { st.enviandoBandeja = false; pintarBandeja(); }
+    if (enviados) toast('✓ ' + enviados + ' reporte(s) pendiente(s) enviado(s). Puedes verlos en "Consultar".');
+  }
+
+  /** "Sin señal" solo cuando el celular de verdad no tiene conexión; con señal el botón es opcional. */
+  function textoGuardarDespues() {
+    $('btn-guardar-despues').textContent = navigator.onLine === false
+      ? '📶 Sin señal: guardar para enviar después' : '📥 Guardar para enviar después';
+  }
+
   /** Hallazgo ya registrado con archivos por subir: bloquea el formulario y muestra cómo seguir. */
   function pintarEnvio() {
     const ec = enCurso();
     $('f-reporte').querySelectorAll('select, input, textarea').forEach(x => { x.disabled = ec; });
-    $('subir-archivos').classList.toggle('desactivado', ec);
     // El aviso solo aparece si el envío quedó en pausa (no mientras se está subiendo).
     const pausa = ec && !st.enviando;
+    $('btn-guardar-despues').hidden = st.enviando || !st.datos;
+    textoGuardarDespues();
     $('envio-pendiente').hidden = !pausa;
     if (!st.enviando) $('btn-enviar').textContent = pausa ? '🔁 Reintentar envío de ' + st.envio.id : 'Enviar reporte';
     if (pausa) {
@@ -846,20 +1248,29 @@
     };
   }
 
+  /** Revisa el formulario antes de enviar o guardar; devuelve false (con aviso) si falta algo. */
+  function formularioValido(verbo) {
+    const datos = leerFormulario();
+    const error = !datos.zona ? 'Seleccione el piso / zona.' : !datos.fechaReporte ? 'Indique la fecha del reporte.'
+      : datos.fechaReporte > hoyISO() ? 'La fecha del reporte no puede ser futura.' : !datos.categoria ? 'Seleccione la categoría.'
+      : !datos.descripcion ? 'Escriba la descripción.'
+      : st.archivos.length > maxEvidencias() ? 'Máximo ' + maxEvidencias() + ' fotos o videos por hallazgo: quite ' + (st.archivos.length - maxEvidencias()) + '.'
+      : st.archivos.some(a => a.malo) ? 'Quite los archivos marcados en rojo (solo fotos o videos).' : '';
+    if (error) { toast(error, true); return false; }
+    return !!st.archivos.length || confirm('¿' + verbo + ' el reporte sin fotos ni videos?');
+  }
   $('f-reporte').addEventListener('submit', ev => {
     ev.preventDefault();
     if (st.enviando) return;
-    if (!enCurso()) {
-      const datos = leerFormulario();
-      if (!datos.zona) return toast('Seleccione el piso / zona.', true);
-      if (!datos.fechaReporte) return toast('Indique la fecha del reporte.', true);
-      if (datos.fechaReporte > hoyISO()) return toast('La fecha del reporte no puede ser futura.', true);
-      if (!datos.categoria) return toast('Seleccione la categoría.', true);
-      if (!datos.descripcion) return toast('Escriba la descripción.', true);
-      if (st.archivos.some(a => a.malo)) return toast('Quite los archivos marcados en rojo (solo fotos o videos).', true);
-      if (!st.archivos.length && !confirm('¿Enviar el reporte sin fotos ni videos?')) return;
-    }
+    if (!enCurso() && !formularioValido('Enviar')) return;
+    // Sin señal: en vez de esperar, se guarda en la bandeja.
+    if (navigator.onLine === false && !st.enviandoBandeja) return guardarParaDespues(true);
     enviar();
+  });
+  $('btn-guardar-despues').addEventListener('click', () => {
+    if (st.enviando) return;
+    if (!enCurso() && !formularioValido('Guardar')) return;
+    guardarParaDespues(false);
   });
   $('btn-terminar').addEventListener('click', () => {
     if (st.enviando || !enCurso()) return;
@@ -871,23 +1282,25 @@
     if (st.enviando || !enCurso()) return;
     if (!confirm('¿Descartar este envío? El hallazgo ' + st.envio.id + ' queda registrado como "Incompleto" y las fotos que ' +
       'falten deberá entregarlas al administrador.')) return;
-    reiniciarFormulario();
+    reiniciarFormulario({ borrar: true });
   });
 
+  /** Envía el reporte del formulario. Devuelve true si terminó (registrado y finalizado). */
   async function enviar() {
+    let exito = false;
     const btn = $('btn-enviar'); btn.disabled = true; btn.classList.add('ocupado'); $('btn-terminar').disabled = true;
     st.enviando = true; pantallaEncendida(true);
     btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
     try {
-      // La clave se crea una vez por reporte; los reintentos reenvían la misma.
-      if (!st.envio) st.envio = { clave: claveAleatoria() };
+      // La clave se crea una vez por reporte (es la misma del borrador); los reintentos reenvían la misma.
+      if (!st.envio) st.envio = { clave: claveBorrador() };
       if (!st.envio.id) {
         const datos = leerFormulario();
         datos.nArchivos = st.archivos.length; datos.claveEnvio = st.envio.clave;
         st.archivos.forEach((a, i) => { a.indice = i + 1; });
         const r = await conReintentos(() => api('api_crearHallazgo', st.codigo, datos), 'Registrando hallazgo…', 3);
         st.envio.id = r.id; st.envio.ticket = r.ticket;
-        pintarEnvio();
+        pintarEnvio(); guardarBorradorYa();
       }
       const id = st.envio.id, ticket = st.envio.ticket, lista = st.archivos;
       for (let i = 0; i < lista.length; i++) {
@@ -906,7 +1319,8 @@
       const pendientes = lista.filter(a => a.pendiente).map(a => ({ indice: a.indice, original: a.file.name, mime: a.file.type }));
       const fin = await conReintentos(() => api('api_finalizarHallazgo', st.codigo, id, ticket, pendientes), 'Finalizando…', 97);
       progreso(100, 'Listo');
-      st.envio = null;
+      st.envio = null; gpsApagar(); exito = true;
+      borradorEnviado();
       $('res-id').textContent = id;
       $('res-detalle').textContent = fin.evidencias + ' evidencia(s) guardada(s).';
       mostrarManual(fin);
@@ -920,11 +1334,16 @@
       pintarEnvio();
       if (enCurso()) $('envio-pendiente').scrollIntoView({ behavior: 'smooth', block: 'center' });
       setTimeout(() => { $('progreso').hidden = true; }, 800);
+      if (!exito) guardarBorradorYa();
     }
+    return exito;
   }
-  function reiniciarFormulario() {
+  /** op.borrar: elimina también la copia guardada en el celular (si no, queda donde estaba: bandeja o nada). */
+  function reiniciarFormulario(op) {
+    if (op && op.borrar && st.actual) bdQuitarReporte(st.actual).then(pintarBandeja);
+    st.actual = null; st.actualEnCola = false; st.actualCreado = null; st.sinBorrador = false;
     st.archivos.forEach(a => a.url && URL.revokeObjectURL(a.url));
-    st.archivos = []; st.envio = null;
+    st.archivos = []; st.envio = null; gpsApagar();
     $('in-ubicacion').value = ''; $('in-descripcion').value = ''; $('sel-categoria').value = ''; $('in-reporta').value = '';
     fechaHoy();
     pintarEnvio();
@@ -950,6 +1369,7 @@
 
   $('btn-otro').addEventListener('click', () => {
     reiniciarFormulario();
+    pintarBandeja();
     $('resultado').hidden = true; $('res-manual').hidden = true; $('f-reporte').hidden = false;
   });
 
@@ -1073,8 +1493,11 @@
     try {
       const aj = await api('api_guardarAjustes', st.codigo, {
         cualquierTorre: $('a-cualquier').checked, limiteMB: Number($('a-limite').value) || 50,
+        maxEvidencias: Number($('a-maxev').value) || 5, camaraTorres: $('a-camara').checked, marcaAgua: $('a-marca').checked,
       });
-      st.datos.ajustes = aj; st.datos.limiteMB = aj.limiteMB; $('limite-mb').textContent = aj.limiteMB;
+      Object.assign(st.datos, { ajustes: aj, limiteMB: aj.limiteMB, maxEvidencias: aj.maxEvidencias, marcaAgua: aj.marcaAgua });
+      $('limite-mb').textContent = aj.limiteMB; $('a-maxev').value = aj.maxEvidencias;
+      pintarArchivos();
       toast('Ajustes guardados');
     } catch (e) { toast(msgError(e), true); }
   }));
@@ -1235,6 +1658,8 @@
 
   $('banner-prueba').hidden = !ES_PRUEBA;
   iniciar(localStorage.getItem(LS_CODIGO) || '');
+  // Modo sin conexión: guarda una copia de la página para poder abrirla sin señal.
+  if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
 </script>
 </body>
