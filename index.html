@@ -30,6 +30,11 @@
     .error { color: var(--error); font-size: .9rem; }
   
     .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+    .subtabs { display: flex; gap: 4px; margin-bottom: 10px; }
+    .subtab { flex: 1 1 auto; min-width: 0; padding: 7px 2px; border: 0; border-bottom: 3px solid var(--borde); background: none;
+              font-size: .78rem; cursor: pointer; color: var(--texto); white-space: nowrap; }
+    @media (max-width: 340px) { .subtabs { gap: 2px; } .subtab { font-size: .7rem; padding: 7px 0; } }
+    .subtab.activa { border-bottom-color: var(--azul); color: var(--azul); font-weight: 700; }
     .tab { flex: 1; padding: 10px 6px; border: 1px solid var(--borde); background: #fff; border-radius: 10px;
            font-size: .95rem; cursor: pointer; color: var(--texto); }
     .tab.activa { background: var(--azul); color: #fff; border-color: var(--azul); }
@@ -91,6 +96,15 @@
   
     .exito { text-align: center; }
     .check { font-size: 2.5rem; }
+    .e-cab { display: flex; gap: 6px; align-items: center; }
+    .e-cab select { flex: 1; min-width: 0; margin: 0; }
+    .e-cab .btn { width: auto; flex: none; margin: 0; }
+    #e-resumen { font-size: .8rem; margin: 6px 0 4px; }
+    #e-info { font-size: .7rem; margin: 2px 0 0; }
+    .tabla-est { width: 100%; border-collapse: collapse; font-size: .8rem; line-height: 1.2; }
+    .tabla-est th, .tabla-est td { padding: 2px 4px; border-bottom: 1px solid var(--borde); text-align: left; }
+    .tabla-est th:last-child, .tabla-est td:last-child { text-align: right; }
+    .tabla-est .sin { color: #667085; }
     .id-grande { font-size: 1.6rem; font-weight: 700; color: var(--azul); letter-spacing: 1px; margin: 6px 0; }
   
     .hallazgo { background: #fff; border: 1px solid var(--borde); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
@@ -294,8 +308,8 @@
 
         <div id="resultado" class="tarjeta exito" hidden>
           <div class="check">✅</div>
-          <p>Hallazgo registrado</p>
-          <p class="id-grande" id="res-id"></p>
+          <p id="res-titulo">Hallazgo registrado</p>
+          <div class="id-grande" id="res-id"></div>
           <p id="res-detalle" class="ayuda"></p>
           <div id="res-manual" class="aviso-manual" hidden></div>
           <button id="btn-otro" class="btn" type="button">Reportar otro</button>
@@ -332,6 +346,35 @@
 
       <!-- Admin -->
       <div id="t-admin" class="panel" hidden>
+        <nav class="subtabs">
+          <button class="subtab activa" data-sub="estadisticas" type="button">📊 Estadísticas</button>
+          <button class="subtab" data-sub="usuarios" type="button">👥 Usuarios</button>
+          <button class="subtab" data-sub="ajustes" type="button">⚙️ Ajustes</button>
+          <button class="subtab" data-sub="herramientas" type="button">🔧 Herramientas</button>
+        </nav>
+        <div id="s-estadisticas" class="subpanel">
+        <div class="tarjeta">
+          <h2>📊 Estadísticas</h2>
+          <div class="e-cab">
+            <select id="e-libro" aria-label="Libro"></select>
+            <button id="e-actualizar" class="btn btn-sec mini" type="button">🔄 Actualizar</button>
+          </div>
+          <p id="e-resumen"></p>
+          <table class="tabla-est">
+            <thead><tr><th>Piso / Zona</th><th>Hallazgos</th></tr></thead>
+            <tbody id="e-filas"></tbody>
+          </table>
+          <p id="e-info" class="ayuda"></p>
+        </div>
+        <div class="tarjeta">
+          <h2>Control general</h2>
+          <p class="ayuda">Excel <b>Control_Evidencias_TramonteLiving</b>: resumen de las 5 torres y Zonas Comunes por estado y
+            por categoría. Se actualiza solo cada hora; use el botón para tenerlo al día ahora.</p>
+          <p id="ctl-info" class="ayuda"></p>
+          <button id="ctl-actualizar" class="btn" type="button">🔄 Actualizar control general</button>
+        </div>
+        </div>
+        <div id="s-usuarios" class="subpanel" hidden>
         <div class="tarjeta">
           <h2>Usuarios</h2>
           <div class="u-filtros">
@@ -362,6 +405,8 @@
             <button id="u-cancelar" class="btn btn-sec" type="button" style="margin-top:8px" hidden>Cancelar edición</button>
           </form>
         </div>
+        </div>
+        <div id="s-ajustes" class="subpanel" hidden>
         <div class="tarjeta">
           <h2>Ajustes de acceso</h2>
           <label class="switch">
@@ -386,13 +431,8 @@
           </label>
           <button id="a-guardar" class="btn" type="button">Guardar ajustes</button>
         </div>
-        <div class="tarjeta">
-          <h2>Control general</h2>
-          <p class="ayuda">Excel <b>Control_Evidencias_TramonteLiving</b>: resumen de las 5 torres y Zonas Comunes por estado y
-            por categoría. Se actualiza solo cada hora; use el botón para tenerlo al día ahora.</p>
-          <p id="ctl-info" class="ayuda"></p>
-          <button id="ctl-actualizar" class="btn" type="button">🔄 Actualizar control general</button>
         </div>
+        <div id="s-herramientas" class="subpanel" hidden>
         <div class="tarjeta">
           <h2>Enlaces</h2>
           <ul id="a-enlaces" class="enlaces"></ul>
@@ -422,6 +462,7 @@
             (se pueden recuperar durante 30 días). Los consecutivos vuelven a empezar en 001.
             Los códigos, categorías y ajustes no se tocan.</p>
           <button id="a-reset" class="btn btn-peligro" type="button">🗑 Borrar todo y empezar de nuevo</button>
+        </div>
         </div>
       </div>
     </section>
@@ -635,8 +676,8 @@
   function limpiarPantalla() {
     document.querySelectorAll('.tab').forEach(x => x.classList.toggle('activa', x.dataset.tab === 'reportar'));
     ['reportar', 'consultar', 'admin'].forEach(t => { $('t-' + t).hidden = t !== 'reportar'; });
-    ['c-lista', 'c-enlaces', 'ctl-info', 'u-lista', 'a-enlaces', 'u-temporal', 'lista-archivos'].forEach(id => { $(id).innerHTML = ''; });
-    $('u-temporal').hidden = true; $('a-reset-tarjeta').hidden = true;
+    ['c-lista', 'c-enlaces', 'ctl-info', 'u-lista', 'a-enlaces', 'u-temporal', 'lista-archivos', 'e-libro', 'e-filas', 'e-resumen', 'e-info'].forEach(id => { $(id).innerHTML = ''; });
+    $('u-temporal').hidden = true; $('a-reset-tarjeta').hidden = true; st.estad = null; verSubpanel('estadisticas');
     $('c-total').textContent = ''; $('c-buscar').value = '';
     $('u-buscar').value = ''; $('u-filtro').innerHTML = ''; $('u-total').textContent = ''; st.usuarios = null; st.uAbierto = null;
     st.lista = []; st.archivos = []; st.envio = null; st.actual = null; st.actualEnCola = false; st.actualCreado = null; st.sinBorrador = false;
@@ -704,7 +745,14 @@
     document.querySelectorAll('.tab').forEach(x => x.classList.toggle('activa', x === b));
     ['reportar', 'consultar', 'admin'].forEach(t => { $('t-' + t).hidden = t !== b.dataset.tab; });
     if (b.dataset.tab === 'consultar') cargarLista();
+    if (b.dataset.tab === 'admin' && !st.estad) cargarEstadisticas();
   }));
+
+  function verSubpanel(nombre) {
+    document.querySelectorAll('.subtab').forEach(x => x.classList.toggle('activa', x.dataset.sub === nombre));
+    document.querySelectorAll('.subpanel').forEach(x => { x.hidden = x.id !== 's-' + nombre; });
+  }
+  document.querySelectorAll('.subtab').forEach(b => b.addEventListener('click', () => verSubpanel(b.dataset.sub)));
 
   // ---------- reportar ----------
   function zonasDeLibro(id) { const l = st.datos.libros.find(x => x.id === id); return l ? l.zonas : []; }
@@ -1192,7 +1240,7 @@
       if (!confirm('Tienes un reporte en el formulario sin enviar: se guardará en pendientes y se enviarán todos. ¿Continuar?')) return;
       st.actualEnCola = true; await guardarBorradorYa();
     }
-    st.enviandoBandeja = true;
+    st.enviandoBandeja = true; st.fines = [];
     let enviados = 0;
     try {
       for (;;) {
@@ -1207,7 +1255,8 @@
         enviados++;
       }
     } finally { st.enviandoBandeja = false; pintarBandeja(); }
-    if (enviados) toast('✓ ' + enviados + ' reporte(s) pendiente(s) enviado(s). Puedes verlos en "Consultar".');
+    if (enviados) toast('✓ ' + enviados + ' reporte(s) pendiente(s) enviado(s): ' + st.fines.map(f => f.id).join(', ') +
+      '. Puedes verlos en "Consultar".');
   }
 
   /** "Sin señal" solo cuando el celular de verdad no tiene conexión; con señal el botón es opcional. */
@@ -1321,9 +1370,10 @@
       progreso(100, 'Listo');
       st.envio = null; gpsApagar(); exito = true;
       borradorEnviado();
-      $('res-id').textContent = id;
-      $('res-detalle').textContent = fin.evidencias + ' evidencia(s) guardada(s).';
-      mostrarManual(fin);
+      // Al enviar los pendientes, la pantalla final muestra todos los ID registrados en la tanda.
+      const res = Object.assign({}, fin, { id });
+      st.fines = st.enviandoBandeja ? (st.fines || []).concat(res) : [res];
+      mostrarResultado(st.fines);
       $('f-reporte').hidden = true; $('resultado').hidden = false;
       window.scrollTo(0, 0);
     } catch (e) {
@@ -1349,9 +1399,21 @@
     pintarEnvio();
   }
 
+  function mostrarResultado(fines) {
+    const varios = fines.length > 1;
+    $('res-titulo').textContent = varios ? fines.length + ' hallazgos registrados' : 'Hallazgo registrado';
+    $('res-id').replaceChildren(...fines.map(f => el('div', {}, [f.id,
+      varios ? el('span', { class: 'ayuda', text: ' · ' + f.evidencias + ' evid.' }) : ''])));
+    $('res-detalle').textContent = varios
+      ? fines.reduce((s, f) => s + f.evidencias, 0) + ' evidencia(s) guardada(s) en total.'
+      : fines[0].evidencias + ' evidencia(s) guardada(s).';
+    $('res-manual').innerHTML = '';
+    $('res-manual').hidden = !fines.some(f => f.pendientes.length);
+    fines.forEach(mostrarManual);
+  }
+
   function mostrarManual(fin) {
     const caja = $('res-manual');
-    caja.innerHTML = ''; caja.hidden = !fin.pendientes.length;
     if (!fin.pendientes.length) return;
     const texto = 'Hallazgo ' + fin.id + ' – archivos para cargar manualmente\nCarpeta: ' + fin.ruta + '\n' +
       fin.pendientes.map(p => '• ' + p.original + '  →  guardar como: ' + p.nombre).join('\n');
@@ -1647,12 +1709,32 @@
       } catch (e) { toast(msgError(e), true); }
     });
   });
+  async function cargarEstadisticas(forzar) {
+    $('e-info').textContent = 'Cargando estadísticas…';
+    try { st.estad = await api('api_estadisticas', st.codigo, !!forzar); pintarEstadisticas(); }
+    catch (e) { $('e-info').textContent = 'No se pudieron cargar: ' + msgError(e); }
+  }
+  function pintarEstadisticas() {
+    const sel = $('e-libro'), elegido = sel.value;
+    sel.replaceChildren(...st.estad.libros.map(l => el('option', { value: l.id, text: l.nombre })));
+    if (elegido) sel.value = elegido;
+    const libro = st.estad.libros.find(l => l.id === sel.value) || st.estad.libros[0];
+    if (!libro) return;
+    const con = libro.zonas.filter(z => z.n).length, total = libro.zonas.reduce((s, z) => s + z.n, 0);
+    $('e-resumen').replaceChildren(el('b', { text: libro.nombre + ': ' + total + ' hallazgo(s) · ' + con + ' de ' +
+      libro.zonas.length + ' zonas con reportes · ' + (libro.zonas.length - con) + ' sin reportes' }));
+    $('e-filas').replaceChildren(...libro.zonas.map(z => el('tr', z.n ? {} : { class: 'sin' }, [
+      el('td', { text: z.nombre }), el('td', { text: z.n ? String(z.n) : '⚪ Sin reportes' })])));
+    $('e-info').textContent = 'Actualizado: ' + st.estad.actualizado + ' · No cuenta Duplicado ni Anulado';
+  }
+  $('e-libro').addEventListener('change', pintarEstadisticas);
+  $('e-actualizar').addEventListener('click', ev => conEspera(ev.currentTarget, 'Actualizando…', () => cargarEstadisticas(true)));
   $('ctl-actualizar').addEventListener('click', ev => conEspera(ev.currentTarget, 'Actualizando… (puede tardar)', async () => {
     try { const c = await api('api_actualizarControl', st.codigo); st.datos.control = c; pintarControl(c); toast('Control general actualizado'); }
     catch (e) { toast(msgError(e), true); }
   }));
   $('a-recargar').addEventListener('click', ev => conEspera(ev.currentTarget, 'Recargando…', async () => {
-    try { await api('api_recargarConfig', st.codigo); toast('Configuración recargada'); iniciar(st.codigo); }
+    try { await api('api_recargarConfig', st.codigo); toast('Configuración recargada'); iniciar(st.codigo); cargarEstadisticas(); }
     catch (e) { toast(msgError(e), true); }
   }));
 
